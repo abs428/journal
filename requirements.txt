@@ -1,0 +1,2 @@
+PyInquirer==1.0.3 # This depends on prompt toolkit and that often breaks things
+click==7.1.2
