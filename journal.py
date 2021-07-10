@@ -12,6 +12,7 @@ choice.
 
 import os
 import json
+import warnings
 import click
 from pathlib import Path
 import typing as t
@@ -101,15 +102,23 @@ def cli(command):
     if command == "new":
         settings = get_settings()
         posts = os.listdir(settings["posts"])
+        editor_exe = settings["editor"]
         latest = max(posts)  # TODO: Test this :D
         todays_post = get_post_name()
+        new_post = os.path.join(settings["posts"], todays_post)
+
         if latest == todays_post:
             # This will be a warning
-            raise ValueError("Today's post already exists")
+            warnings.warn("Today's post already exists. Opening in text editor.")
         else:
-            new_post = os.path.join(settings["posts"], todays_post)
-            editor_exe = settings["editor"]
-            call([editor_exe, new_post])
+            # Filling in the default header
+            # TODO: Make this configurable via a template
+            lines = ["---", f"title: {todays_post}", "layout: post", "category: journal", "---"]
+            template = "\n".join(lines)
+            with open(new_post, "w") as file:
+                file.write(template)
+
+        call([editor_exe, new_post])
 
     elif command == "setup":
         from PyInquirer import style_from_dict, Token, prompt, Separator
