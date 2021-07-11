@@ -18,7 +18,7 @@ from pathlib import Path
 import typing as t
 from subprocess import call
 
-COMMANDS = {"new", "setup"}
+COMMANDS = {"new", "yesterday", "setup"}
 SETTINGS_FILE = "settings.json"
 
 
@@ -95,14 +95,23 @@ def get_post_name(name: str = None, date: str = None):
     return date + "-" + name + ".md"
 
 
-@click.argument("command", type=click.Choice(COMMANDS), default="new")
+@click.argument(
+    "command",
+    type=click.Choice(COMMANDS),
+    default="new",
+)
 @click.command()
 def cli(command):
-    """The command line interface"""
+    """Welcome to Journal CLI.
+    
+    The command is a string that is equal to one of {new, yesterday, setup}.
+    """
+
+    settings = get_settings()
+    posts = os.listdir(settings["posts"])
+    editor_exe = settings["editor"]
+
     if command == "new":
-        settings = get_settings()
-        posts = os.listdir(settings["posts"])
-        editor_exe = settings["editor"]
         latest = max(posts)  # TODO: Test this :D
         todays_post = get_post_name()
         new_post = os.path.join(settings["posts"], todays_post)
@@ -113,12 +122,24 @@ def cli(command):
         else:
             # Filling in the default header
             # TODO: Make this configurable via a template
-            lines = ["---", f"title: {todays_post}", "layout: post", "category: journal", "---"]
+            lines = [
+                "---",
+                f"title: {todays_post}",
+                "layout: post",
+                "category: journal",
+                "---",
+            ]
             template = "\n".join(lines)
             with open(new_post, "w") as file:
                 file.write(template)
 
         call([editor_exe, new_post])
+
+    elif command == "yesterday":
+        # Gets the penultimate post, typically "yesterday's" post
+        penultimate = sorted(posts)[-2]
+        penultimate = os.path.join(settings["posts"], penultimate)
+        call([editor_exe, penultimate])
 
     elif command == "setup":
         from PyInquirer import style_from_dict, Token, prompt, Separator
