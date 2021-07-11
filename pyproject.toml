@@ -1,0 +1,21 @@
+[tool.poetry]
+authors = ["Abhishek S <28806489+abs428@users.noreply.github.com>"]
+description = "A CLI that manages your Markdown based journals"
+name = "journal"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+PyInquirer = "1.0.3"
+arrow = "^1.1.1"
+click = "^8.0.1"
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+wheel = "^0.36.2"
+
+[tool.poetry.scripts]
+journal = "journal.journal:cli"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
