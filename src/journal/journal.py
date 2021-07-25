@@ -7,7 +7,11 @@ and creates a new blank journal entry. If a post for the current day already exi
 it gives an error and opens the existing file in a command line interface of your
 choice.
 
-2. journal setup - Create a settings file from scratch
+2. journal yesterday - Opens the previous post
+
+3. journal setup - Create a settings file from scratch
+
+4. journal search SEARCH_TERM - Search all posts using GNU grep
 """
 
 import os
@@ -30,6 +34,7 @@ def check_platform():
     # Check if platform is Windows
     if sys.platform != "win32":
         raise NotImplementedError("We support only Windows currently.")
+
 
 def does_file_exist(filepath: str) -> bool:
     """Helper function that checks whether the file exists"""
@@ -94,7 +99,8 @@ def get_post_name(name: str = None, date: str = None):
     # FIXME: Hardcoding extension may not be a great idea
     return date + "-" + name + ".md"
 
-@click.argument("search_term",type=click.STRING, required = False)
+
+@click.argument("search_term", type=click.STRING, required=False)
 @click.argument(
     "command",
     type=click.Choice(COMMANDS),
@@ -103,7 +109,7 @@ def get_post_name(name: str = None, date: str = None):
 @click.command()
 def cli(command, search_term):
     """Welcome to Journal CLI.
-    
+
     The command is a string that is equal to one of {new, yesterday, setup}.
     """
 
@@ -140,18 +146,20 @@ def cli(command, search_term):
         penultimate = sorted(posts)[-2]
         penultimate = os.path.join(settings["posts"], penultimate)
         call([editor_exe, penultimate])
-    
+
     elif command == "search":
         # Uses `grep` to search the journal entries
         # Based on https://stackoverflow.com/a/11210185/970897 and http://docs.python.org//glossary.html#term-eafp
         if not search_term:
             click.echo("Please enter a search term.")
             sys.exit(1)
-        
+
         try:
-            call(["grep",search_term, os.path.join(settings["posts"], "*.md")])
+            call(["grep", search_term, os.path.join(settings["posts"], "*.md")])
         except Exception as e:
-            print("Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows.")
+            print(
+                "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
+            )
             print(f"Error message for pros: {e}")
 
     elif command == "setup":
@@ -177,7 +185,7 @@ def cli(command, search_term):
             },
             {
                 "type": "input",
-                "message": "Enter for posts",
+                "message": "Enter path for posts",
                 "name": "posts",
             },
         ]
