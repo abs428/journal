@@ -16,9 +16,10 @@ import warnings
 import click
 from pathlib import Path
 import typing as t
+import sys
 from subprocess import call
 
-COMMANDS = {"new", "yesterday", "setup"}
+COMMANDS = {"new", "yesterday", "search", "setup"}
 SETTINGS_FILE = "settings.json"
 
 
@@ -29,7 +30,6 @@ def check_platform():
     # Check if platform is Windows
     if sys.platform != "win32":
         raise NotImplementedError("We support only Windows currently.")
-
 
 def does_file_exist(filepath: str) -> bool:
     """Helper function that checks whether the file exists"""
@@ -94,14 +94,14 @@ def get_post_name(name: str = None, date: str = None):
     # FIXME: Hardcoding extension may not be a great idea
     return date + "-" + name + ".md"
 
-
+@click.argument("search_term",type=click.STRING, required = False)
 @click.argument(
     "command",
     type=click.Choice(COMMANDS),
     default="new",
 )
 @click.command()
-def cli(command):
+def cli(command, search_term):
     """Welcome to Journal CLI.
     
     The command is a string that is equal to one of {new, yesterday, setup}.
@@ -140,6 +140,19 @@ def cli(command):
         penultimate = sorted(posts)[-2]
         penultimate = os.path.join(settings["posts"], penultimate)
         call([editor_exe, penultimate])
+    
+    elif command == "search":
+        # Uses `grep` to search the journal entries
+        # Based on https://stackoverflow.com/a/11210185/970897 and http://docs.python.org//glossary.html#term-eafp
+        if not search_term:
+            click.echo("Please enter a search term.")
+            sys.exit(1)
+        
+        try:
+            call(["grep",search_term, os.path.join(settings["posts"], "*.md")])
+        except Exception as e:
+            print("Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows.")
+            print(f"Error message for pros: {e}")
 
     elif command == "setup":
         from PyInquirer import style_from_dict, Token, prompt, Separator
