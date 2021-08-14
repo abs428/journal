@@ -27,15 +27,6 @@ COMMANDS = {"new", "yesterday", "search", "setup"}
 SETTINGS_FILE = "settings.json"
 
 
-def check_platform():
-    """Function that raises an error if the platform is not Windows."""
-    import sys
-
-    # Check if platform is Windows
-    if sys.platform != "win32":
-        raise NotImplementedError("We support only Windows currently.")
-
-
 def does_file_exist(filepath: str) -> bool:
     """Helper function that checks whether the file exists"""
     my_file = Path(filepath)
@@ -46,10 +37,15 @@ def get_settings_path() -> str:
     """Returns the full path of the settings file"""
     # TODO: Support for other OSes, right now APPDATA path is
     # hardcoded
-    folder_path = os.path.join(os.environ["APPDATA"], "journal")
+    if sys.platform == "win32":
+        folder_path = os.path.join(os.environ["APPDATA"], "journal")
+    elif sys.platform == "darwin":
+        folder_path = "/tmp/journal"
+    else:
+        raise NotImplementedError("We support only Windows and OSX currently.")
+
     file_path = os.path.join(folder_path, SETTINGS_FILE)
     return file_path
-
 
 def get_settings() -> t.Dict[str, str]:
     """Function that returns the settings as a dict"""
@@ -68,6 +64,8 @@ def create_settings(data: t.Dict[str, str]) -> None:
     if does_file_exist(file_path):
         raise ValueError(f"The settings file already exists at {file_path}")
 
+    # BUG: This section for creating a folder if it doesn't exist
+    # doesn't seem to be working on OSX.
     folder_path = os.path.basename(file_path)
     folder = Path(folder_path)
     folder.mkdir(exist_ok=True)  # Creating the folder
@@ -120,9 +118,10 @@ def cli(command, search_term):
     The command is a string that is equal to one of {new, yesterday, setup}.
     """
 
-    settings = get_settings()
-    posts = os.listdir(settings["posts"])
-    editor_exe = settings["editor"]
+    if command != "setup":
+        settings = get_settings()
+        posts = os.listdir(settings["posts"])
+        editor_exe = settings["editor"]
 
     if command == "new":
         latest = max(posts)  # TODO: Test this :D
@@ -199,6 +198,12 @@ def cli(command, search_term):
         ]
 
         settings = prompt(questions, style=style)
+
+        # Adding support for OSX's "~" for home directory
+        if post_path := settings.get("posts"):
+            if post_path.startswith("~"):
+                settings["posts"] = post_path.replace("~", os.environ["HOME"])
+                
         create_settings(settings)
 
     else:
