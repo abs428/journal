@@ -76,7 +76,14 @@ def create_settings(data: t.Dict[str, str]) -> None:
         json.dump(data, f)
 
 
-def get_post_name(name: str = None, date: str = None):
+def get_post_name(
+    name: str = None,
+    date: str = None,
+    day_format: str = "MMMM-D",
+    date_format: str = "YYYY-MM-DD",
+    sep: str = "-",
+    ext: str = ".md",
+):
     """Function that generates the filename for a journal post
     written in markdown. It creates a default post name if
     nothing is specified. The post entry refers to today's entry.
@@ -90,14 +97,14 @@ def get_post_name(name: str = None, date: str = None):
     now = arrow.now()
 
     if date is None:
-        date = now.format("YYYY-MM-DD")
+        date = now.format(date_format)
     else:
         raise NotImplementedError("Posts for custom dates not supported yet.")
     if name is None:
-        name = now.format("MMMM-D").lower()
+        name = now.format(day_format).lower()
 
     # FIXME: Hardcoding extension may not be a great idea
-    return date + "-" + name + ".md"
+    return date + sep + name + ext
 
 
 @click.argument("search_term", type=click.STRING, required=False)
@@ -128,9 +135,10 @@ def cli(command, search_term):
         else:
             # Filling in the default header
             # TODO: Make this configurable via a template
+            title = get_post_name(day_format="", date_format="MMMM Do", sep="", ext="")
             lines = [
                 "---",
-                f"title: {todays_post}",
+                f"title: {title}",
                 "layout: post",
                 "category: journal",
                 "---",
