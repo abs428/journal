@@ -23,6 +23,8 @@ import typing as t
 import sys
 from subprocess import call
 
+from click.termui import edit
+
 COMMANDS = {"new", "yesterday", "search", "setup", "push"}
 SETTINGS_FILE = "settings.json"
 
@@ -134,42 +136,16 @@ def cli(ctx, config):
 ## CLI commands
 
 @click.option('--editor', prompt=click.style("Specify the command that opens your favorite editor: ", bold=True))
-@click.option('--posts', prompt=click.style("Specify the folder that contains the posts: ", bold=True))
+@click.option('--posts', prompt=click.style("Specify the folder that contains the posts: ", bold=True), type = click.Path())
 @cli.command()
-def setup():
-    from PyInquirer import style_from_dict, Token, prompt
+def setup(editor, posts):
+    """Configure the app to manage your markdown based journal"""
 
-    style = style_from_dict(
-        {
-            Token.Separator: "#cc5454",
-            Token.QuestionMark: "#673ab7 bold",
-            Token.Selected: "#cc5454",  # default
-            Token.Pointer: "#673ab7 bold",
-            Token.Instruction: "",  # default
-            Token.Answer: "#f44336 bold",
-            Token.Question: "",
-        }
-    )
-    questions = [
-        {
-            "type": "input",
-            "message": "Enter editor path:",
-            "name": "editor",
-            # 'validate': lambda answer: 'You must choose at least one topping.'
-        },
-        {
-            "type": "input",
-            "message": "Enter path for posts",
-            "name": "posts",
-        },
-    ]
-
-    settings = prompt(questions, style=style)
+    settings = {"posts": posts, "editor": editor}
 
     # Adding support for OSX's "~" for home directory
-    if post_path := settings.get("posts"):
-        if post_path.startswith("~"):
-            settings["posts"] = post_path.replace("~", os.environ["HOME"])
+    if posts.startswith("~"):
+        settings["posts"] = posts.replace("~", os.environ["HOME"])
 
     create_settings(settings)
 

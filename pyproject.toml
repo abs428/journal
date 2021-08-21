@@ -5,7 +5,6 @@ name = "journal"
 version = "0.1.0"
 
 [tool.poetry.dependencies]
-PyInquirer = "1.0.3"
 arrow = "^1.1.1"
 click = "^8.0.1"
 python = "^3.8"
