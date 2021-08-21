@@ -1,18 +1,4 @@
-"""Journaling from the command line
-
-Features:-
-
-1. journal new - Find the folder where your posts live (based on a settings file)
-and creates a new blank journal entry. If a post for the current day already exists,
-it gives an error and opens the existing file in a command line interface of your
-choice.
-
-2. journal yesterday - Opens the previous post
-
-3. journal setup - Create a settings file from scratch
-
-4. journal search SEARCH_TERM - Search all posts using GNU grep
-"""
+"""Journaling from the command line"""
 
 import os
 import json
@@ -23,9 +9,6 @@ import typing as t
 import sys
 from subprocess import call
 
-from click.termui import edit
-
-COMMANDS = {"new", "yesterday", "search", "setup", "push"}
 SETTINGS_FILE = "settings.json"
 
 ## Helper functions
