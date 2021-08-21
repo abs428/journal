@@ -23,7 +23,7 @@ import typing as t
 import sys
 from subprocess import call
 
-COMMANDS = {"new", "yesterday", "search", "setup"}
+COMMANDS = {"new", "yesterday", "search", "setup", "push"}
 SETTINGS_FILE = "settings.json"
 
 
@@ -107,6 +107,7 @@ def get_post_name(
     return date + sep + name + ext
 
 
+@click.option("--config", is_flag=True, help="Displays the current settings.")
 @click.argument("search_term", type=click.STRING, required=False)
 @click.argument(
     "command",
@@ -114,7 +115,7 @@ def get_post_name(
     default="new",
 )
 @click.command()
-def cli(command, search_term):
+def cli(command, search_term, config):
     """Welcome to Journal CLI.
 
     The command is a string that is equal to one of {new, yesterday, setup}.
@@ -124,7 +125,33 @@ def cli(command, search_term):
     posts = os.listdir(settings["posts"])
     editor_exe = settings["editor"]
 
-    if command == "new":
+    if config:
+        # TODO: Beautify the stdout
+        print(settings)
+        return
+
+    if command == "push":
+        # Commits the changes to the posts to Git and pushes them
+        # to the remote repository
+        try:
+            from git import Repo
+        except ImportError:
+            raise ImportError(
+                "Using the 'push' command requires GitPython to be installed."
+            )
+        from time import time
+        # import pdb; pdb.set_trace()
+        folder = os.path.dirname(settings["posts"])
+        repo = Repo(folder)
+        commit_msg = f"Autocommit at {time()}"
+        # Commiting the folder with posts and the one with images
+        _ = repo.index.add([settings["posts"], 'assets/img'])
+        repo.index.commit(commit_msg)
+        origin = repo.remote('origin')
+        origin.push()
+        print("Sucessfully updated the journal on remote repository.")
+
+    elif command == "new":
         latest = max(posts)  # TODO: Test this :D
         todays_post = get_post_name()
         new_post = os.path.join(settings["posts"], todays_post)
