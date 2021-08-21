@@ -26,6 +26,8 @@ from subprocess import call
 COMMANDS = {"new", "yesterday", "search", "setup", "push"}
 SETTINGS_FILE = "settings.json"
 
+## Helper functions
+
 
 def does_file_exist(filepath: str) -> bool:
     """Helper function that checks whether the file exists"""
@@ -46,6 +48,7 @@ def get_settings_path() -> str:
 
     file_path = os.path.join(folder_path, SETTINGS_FILE)
     return file_path
+
 
 def get_settings() -> t.Dict[str, str]:
     """Function that returns the settings as a dict"""
@@ -104,137 +107,163 @@ def get_post_name(
     # FIXME: Hardcoding extension may not be a great idea
     return date + sep + name + ext
 
+def display_dict(dictionary: t.Dict[str, str]) -> None:
+    """Displays a nicely formatted dictionary with
+    key value pairs on the terminal"""
+    for key, value in dictionary.items():
+        text = (click.style(key, fg="white", bold=True) + ": ").rjust(15) + value
+        click.echo(text)
+
+## CLI
 
 @click.option("--config", is_flag=True, help="Displays the current settings.")
-@click.argument("search_term", type=click.STRING, required=False)
-@click.argument(
-    "command",
-    type=click.Choice(COMMANDS),
-    default="new",
-)
-@click.command()
-def cli(command, search_term, config):
-    """Welcome to Journal CLI.
-
-    The command is a string that is equal to one of {new, yesterday, setup}.
-    """
-
-    if command != "setup":
-        settings = get_settings()
-        posts = os.listdir(settings["posts"])
-        editor_exe = settings["editor"]
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx, config):
+    """Manage your journal entries from the terminal"""
 
     if config:
         # TODO: Beautify the stdout
-        print(settings)
+        settings = get_settings()
+        display_dict(settings)
         return
+    
+    if not ctx.invoked_subcommand:
+        new()
 
-    if command == "push":
-        # Commits the changes to the posts to Git and pushes them
-        # to the remote repository
-        try:
-            from git import Repo
-        except ImportError:
-            raise ImportError(
-                "Using the 'push' command requires GitPython to be installed."
-            )
-        from time import time
-        # import pdb; pdb.set_trace()
-        folder = os.path.dirname(settings["posts"])
-        repo = Repo(folder)
-        commit_msg = f"Autocommit at {time()}"
-        # Commiting the folder with posts and the one with images
-        _ = repo.index.add([settings["posts"], 'assets/img'])
-        repo.index.commit(commit_msg)
-        origin = repo.remote('origin')
-        origin.push()
-        print("Sucessfully updated the journal on remote repository.")
+## CLI commands
 
-    elif command == "new":
-        latest = max(posts)  # TODO: Test this :D
-        todays_post = get_post_name()
-        new_post = os.path.join(settings["posts"], todays_post)
+@click.option('--editor', prompt=click.style("Specify the command that opens your favorite editor: ", bold=True))
+@click.option('--posts', prompt=click.style("Specify the folder that contains the posts: ", bold=True))
+@cli.command()
+def setup():
+    from PyInquirer import style_from_dict, Token, prompt
 
-        if latest == todays_post:
-            # This will be a warning
-            warnings.warn("Today's post already exists. Opening in text editor.")
-        else:
-            # Filling in the default header
-            # TODO: Make this configurable via a template
-            title = get_post_name(day_format="", date_format="MMMM Do", sep="", ext="")
-            lines = [
-                "---",
-                f"title: {title}",
-                "layout: post",
-                "category: journal",
-                "---",
-            ]
-            template = "\n".join(lines)
-            with open(new_post, "w") as file:
-                file.write(template)
+    style = style_from_dict(
+        {
+            Token.Separator: "#cc5454",
+            Token.QuestionMark: "#673ab7 bold",
+            Token.Selected: "#cc5454",  # default
+            Token.Pointer: "#673ab7 bold",
+            Token.Instruction: "",  # default
+            Token.Answer: "#f44336 bold",
+            Token.Question: "",
+        }
+    )
+    questions = [
+        {
+            "type": "input",
+            "message": "Enter editor path:",
+            "name": "editor",
+            # 'validate': lambda answer: 'You must choose at least one topping.'
+        },
+        {
+            "type": "input",
+            "message": "Enter path for posts",
+            "name": "posts",
+        },
+    ]
 
-        call([editor_exe, new_post])
+    settings = prompt(questions, style=style)
 
-    elif command == "yesterday":
-        # Gets the penultimate post, typically "yesterday's" post
-        penultimate = sorted(posts)[-2]
-        penultimate = os.path.join(settings["posts"], penultimate)
-        call([editor_exe, penultimate])
+    # Adding support for OSX's "~" for home directory
+    if post_path := settings.get("posts"):
+        if post_path.startswith("~"):
+            settings["posts"] = post_path.replace("~", os.environ["HOME"])
 
-    elif command == "search":
-        # Uses `grep` to search the journal entries
-        # Based on https://stackoverflow.com/a/11210185/970897 and http://docs.python.org//glossary.html#term-eafp
-        if not search_term:
-            click.echo("Please enter a search term.")
-            sys.exit(1)
+    create_settings(settings)
 
-        try:
-            call(["grep", search_term, os.path.join(settings["posts"], "*.md")])
-        except Exception as e:
-            print(
-                "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
-            )
-            print(f"Error message for pros: {e}")
 
-    elif command == "setup":
-        from PyInquirer import style_from_dict, Token, prompt, Separator
+@click.argument("search_term", type=click.STRING, required=True)
+@cli.command()
+def search(search_term):
+    """Allows you to search the journal. Relies on `grep`."""
+    # Uses `grep` to search the journal entries
+    # Based on https://stackoverflow.com/a/11210185/970897 and http://docs.python.org//glossary.html#term-eafp
+    settings = get_settings()
 
-        style = style_from_dict(
-            {
-                Token.Separator: "#cc5454",
-                Token.QuestionMark: "#673ab7 bold",
-                Token.Selected: "#cc5454",  # default
-                Token.Pointer: "#673ab7 bold",
-                Token.Instruction: "",  # default
-                Token.Answer: "#f44336 bold",
-                Token.Question: "",
-            }
+    try:
+        call(["grep", search_term, os.path.join(settings["posts"], "*.md")])
+    except Exception as e:
+        print(
+            "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
         )
-        questions = [
-            {
-                "type": "input",
-                "message": "Enter editor path:",
-                "name": "editor",
-                # 'validate': lambda answer: 'You must choose at least one topping.'
-            },
-            {
-                "type": "input",
-                "message": "Enter path for posts",
-                "name": "posts",
-            },
-        ]
+        print(f"Error message for pros: {e}")
 
-        settings = prompt(questions, style=style)
 
-        # Adding support for OSX's "~" for home directory
-        if post_path := settings.get("posts"):
-            if post_path.startswith("~"):
-                settings["posts"] = post_path.replace("~", os.environ["HOME"])
-                
-        create_settings(settings)
+@cli.command()
+def push():
+    """Commits the changes to the posts to Git and pushes them
+    to the remote repository"""
+    try:
+        from git import Repo
+    except ImportError:
+        raise ImportError(
+            "Using the 'push' command requires GitPython to be installed."
+        )
+    from time import time
 
+    settings = get_settings()
+
+    folder = os.path.dirname(settings["posts"])
+    repo = Repo(folder)
+    commit_msg = f"Autocommit at {time()}"
+    # Commiting the folder with posts and the one with images
+    _ = repo.index.add([settings["posts"], "assets/img"])
+    repo.index.commit(commit_msg)
+    origin = repo.remote("origin")
+    origin.push()
+
+    click.echo(
+        click.style("SUCCESS: ", fg="green")
+        + "Updated the journal on remote repository."
+    )
+
+@cli.command()
+def new():
+    """Creates a new post for the day if one hasn't already
+    been created. Opens that day's post in the configured editor
+    in case it already exists"""
+
+    settings = get_settings()
+    posts = os.listdir(settings["posts"])
+    editor_exe = settings["editor"]
+
+    latest = max(posts)  # TODO: Test this :D
+    todays_post = get_post_name()
+    new_post = os.path.join(settings["posts"], todays_post)
+
+    if latest == todays_post:
+        # This will be a warning
+        warnings.warn("Today's post already exists. Opening in text editor.")
     else:
-        raise ValueError(f"Argument: `{command}` is not supported.")
+        # Filling in the default header
+        # TODO: Make this configurable via a template
+        title = get_post_name(day_format="", date_format="MMMM Do", sep="", ext="")
+        lines = [
+            "---",
+            f"title: {title}",
+            "layout: post",
+            "category: journal",
+            "---",
+        ]
+        template = "\n".join(lines)
+        with open(new_post, "w") as file:
+            file.write(template)
+
+    call([editor_exe, new_post])
+
+@cli.command()
+def previous():
+    """Opens the penultimate post, typically "yesterday's" post
+    in the configured editor"""
+    settings = get_settings()
+    posts = os.listdir(settings["posts"])
+    editor_exe = settings["editor"]
+
+    penultimate = sorted(posts)[-2]
+    penultimate = os.path.join(settings["posts"], penultimate)
+    call([editor_exe, penultimate])
 
 
 if __name__ == "__main__":
