@@ -92,6 +92,7 @@ def get_post_name(
     # FIXME: Hardcoding extension may not be a great idea
     return date + sep + name + ext
 
+
 def display_dict(dictionary: t.Dict[str, str]) -> None:
     """Displays a nicely formatted dictionary with
     key value pairs on the terminal"""
@@ -99,7 +100,9 @@ def display_dict(dictionary: t.Dict[str, str]) -> None:
         text = (click.style(key, fg="white", bold=True) + ": ").rjust(15) + value
         click.echo(text)
 
+
 ## CLI
+
 
 @click.option("--config", is_flag=True, help="Displays the current settings.")
 @click.group(invoke_without_command=True)
@@ -112,14 +115,25 @@ def cli(ctx, config):
         settings = get_settings()
         display_dict(settings)
         return
-    
+
     if not ctx.invoked_subcommand:
         new()
 
+
 ## CLI commands
 
-@click.option('--editor', prompt=click.style("Specify the command that opens your favorite editor: ", bold=True))
-@click.option('--posts', prompt=click.style("Specify the folder that contains the posts: ", bold=True), type = click.Path())
+
+@click.option(
+    "--editor",
+    prompt=click.style(
+        "Specify the command that opens your favorite editor: ", bold=True
+    ),
+)
+@click.option(
+    "--posts",
+    prompt=click.style("Specify the folder that contains the posts: ", bold=True),
+    type=click.Path(),
+)
 @cli.command()
 def setup(editor, posts):
     """Configure the app to manage your markdown based journal"""
@@ -150,12 +164,14 @@ def search(search_term):
         print(f"Error message for pros: {e}")
 
 
+@click.option("-m", "--message", required=False, type=click.STRING)
 @cli.command()
-def push():
+def push(message):
     """Commits the changes to the posts to Git and pushes them
     to the remote repository"""
     try:
         from git import Repo
+        from git.exc import GitCommandError
     except ImportError:
         raise ImportError(
             "Using the 'push' command requires GitPython to be installed."
@@ -166,17 +182,31 @@ def push():
 
     folder = os.path.dirname(settings["posts"])
     repo = Repo(folder)
-    commit_msg = f"Autocommit at {time()}"
+    if not message:
+        message = f"Autocommit at {time()}"
     # Commiting the folder with posts and the one with images
-    _ = repo.index.add([settings["posts"], "assets/img"])
-    repo.index.commit(commit_msg)
-    origin = repo.remote("origin")
-    origin.push()
+    try:
+        click.secho("Adding new files to index", bold=True)
+        _ = repo.index.add([settings["posts"], "assets/img"])
+        click.secho("Committing changes", bold=True)
+        repo.index.commit(message)
+        click.secho("Pushing to remote repository", bold=True)
+        origin = repo.remote("origin")
+        origin.push()
+    except GitCommandError as giterror:
+        click.secho(
+            click.style("FAILED: ", fg="red")
+            + f"Unable to commit and push to repo. Actual error message - \n\n {giterror}",
+            bold=True,
+        )
+        sys.exit(1)
 
-    click.echo(
+    click.secho(
         click.style("SUCCESS: ", fg="green")
-        + "Updated the journal on remote repository."
+        + "Updated the journal on remote repository.",
+        bold=True,
     )
+
 
 @cli.command()
 def new():
@@ -211,6 +241,7 @@ def new():
             file.write(template)
 
     call([editor_exe, new_post])
+
 
 @cli.command()
 def previous():
