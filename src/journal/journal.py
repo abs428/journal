@@ -19,6 +19,7 @@ def does_file_exist(filepath: str) -> bool:
     my_file = Path(filepath)
     return my_file.is_file()
 
+
 def get_datadir() -> Path:
     """Returns a parent directory path
     where persistent application data can be stored.
@@ -123,12 +124,19 @@ def cli(ctx, config):
     """Manage your journal entries from the terminal"""
 
     if config:
-        # TODO: Beautify the stdout
         settings = get_settings()
         display_dict(settings)
         return
 
     if not ctx.invoked_subcommand:
+        if not does_file_exist(get_settings_path()):
+            click.confirm(
+                "Unable to find the settings file. Would you like to start setup",
+                prompt_suffix="? ",
+                default="Y",
+                abort=True,
+            )
+            setup()
         new()
 
 
@@ -146,7 +154,7 @@ def cli(ctx, config):
     "--posts",
     prompt=click.style("Specify the folder that contains the posts", bold=True),
     type=click.Path(),
-    help="Folder that contains your journal entries as markdown files."
+    help="Folder that contains your journal entries as markdown files.",
 )
 @cli.command()
 def setup(editor, posts):
