@@ -9,7 +9,7 @@ import typing as t
 import sys
 from subprocess import call
 
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = "settings.json"  #: The file containing the configuration information
 
 ## Helper functions
 
@@ -19,20 +19,32 @@ def does_file_exist(filepath: str) -> bool:
     my_file = Path(filepath)
     return my_file.is_file()
 
+def get_datadir() -> Path:
+    """Returns a parent directory path
+    where persistent application data can be stored.
 
-def get_settings_path() -> str:
-    """Returns the full path of the settings file"""
-    # TODO: Support for other OSes, right now APPDATA path is
-    # hardcoded
+    # linux: ~/.local/share
+    # macOS: ~/Library/Application Support
+    # windows: C:/Users/<USER>/AppData/Roaming
+
+    Borrowed from https://stackoverflow.com/a/61901696/970897
+    """
+
+    home = Path.home()
+
     if sys.platform == "win32":
-        folder_path = os.path.join(os.environ["APPDATA"], "journal")
+        return home / "AppData/Roaming"
+    elif sys.platform == "linux":
+        return home / ".local/share"
     elif sys.platform == "darwin":
-        folder_path = "/tmp/journal"
+        return home / "Library/Application Support"
     else:
-        raise NotImplementedError("We support only Windows and OSX currently.")
+        raise NotImplementedError("Supported platforms are: Windows, OSX, Linux.")
 
-    file_path = os.path.join(folder_path, SETTINGS_FILE)
-    return file_path
+
+def get_settings_path() -> Path:
+    """Returns the full path of the settings file"""
+    return get_datadir() / SETTINGS_FILE
 
 
 def get_settings() -> t.Dict[str, str]:
@@ -53,7 +65,7 @@ def create_settings(data: t.Dict[str, str]) -> None:
         raise ValueError(f"The settings file already exists at {file_path}")
 
     # BUG: This section for creating a folder if it doesn't exist
-    # doesn't seem to be working on OSX.
+    # doesn't seem to be working on OSX/Linux.
     folder_path = os.path.basename(file_path)
     folder = Path(folder_path)
     folder.mkdir(exist_ok=True)  # Creating the folder
