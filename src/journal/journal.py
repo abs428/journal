@@ -44,7 +44,7 @@ def get_datadir() -> Path:
 
 def get_settings_path() -> Path:
     """Returns the full path of the settings file"""
-    return get_datadir() / SETTINGS_FILE
+    return get_datadir() / f"journal/{SETTINGS_FILE}"
 
 
 def get_settings() -> t.Dict[str, str]:
@@ -138,13 +138,15 @@ def cli(ctx, config):
 @click.option(
     "--editor",
     prompt=click.style(
-        "Specify the command that opens your favorite editor: ", bold=True
+        "Specify the command that opens your favorite editor", bold=True
     ),
+    help="Command that fires up your favorite text editor",
 )
 @click.option(
     "--posts",
-    prompt=click.style("Specify the folder that contains the posts: ", bold=True),
+    prompt=click.style("Specify the folder that contains the posts", bold=True),
     type=click.Path(),
+    help="Folder that contains your journal entries as markdown files."
 )
 @cli.command()
 def setup(editor, posts):
