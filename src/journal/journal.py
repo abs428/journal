@@ -307,6 +307,12 @@ def previous():
     penultimate = os.path.join(settings["posts"], penultimate)
     call([editor_exe, penultimate])
 
+@cli.command()
+def provoke():
+    from .edge import provoke
+    result = provoke()
+    header = click.style(result.question + "\n", fg="red") + click.style(result.url + "\n", fg="blue") + click.style(result.title + "\n", bold = True)
+    click.echo_via_pager(header + result.content)
 
 if __name__ == "__main__":
     cli()
