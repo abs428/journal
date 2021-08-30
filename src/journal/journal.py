@@ -229,6 +229,36 @@ def push(message):
         bold=True,
     )
 
+@cli.command()
+def pull():
+    """Pulls the latest commits from the remote repo"""
+    try:
+        from git import Repo
+        from git.exc import GitCommandError
+    except ImportError:
+        raise ImportError(
+            "Using the 'push' command requires GitPython to be installed."
+        )
+
+    settings = get_settings()
+
+    folder = os.path.dirname(settings["posts"])
+    repo = Repo(folder)
+    click.secho("Pulling changes from remote repository", bold=True)
+    try:
+        origin = repo.remote("origin")
+        origin.pull()
+        click.secho(
+        click.style("SUCCESS: ", fg="green")
+        + "Updated the offline journal.",
+        bold=True,
+    )
+    except GitCommandError as giterror:
+        click.secho(
+            click.style("FAILED: ", fg="red")
+            + f"Unable to pull from repo. Actual error message - \n\n {giterror}",
+            bold=True,
+        )
 
 @cli.command()
 def new():
