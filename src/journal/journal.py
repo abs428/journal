@@ -178,7 +178,13 @@ def search(search_term):
     settings = get_settings()
 
     try:
-        call(["grep", search_term, os.path.join(settings["posts"], "*.md")])
+        cmd_list = ["grep", search_term, os.path.join(settings["posts"], "*.md")]
+        exit_code = call(cmd_list)
+        if exit_code == 2:
+            warnings.warn(
+                "Wasn't able execute `grep` command. Attempting to launch command via shell."
+            )
+            call(" ".join(cmd_list), shell=True)
     except Exception as e:
         print(
             "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
@@ -229,6 +235,7 @@ def push(message):
         bold=True,
     )
 
+
 @cli.command()
 def pull():
     """Pulls the latest commits from the remote repo"""
@@ -249,16 +256,16 @@ def pull():
         origin = repo.remote("origin")
         origin.pull()
         click.secho(
-        click.style("SUCCESS: ", fg="green")
-        + "Updated the offline journal.",
-        bold=True,
-    )
+            click.style("SUCCESS: ", fg="green") + "Updated the offline journal.",
+            bold=True,
+        )
     except GitCommandError as giterror:
         click.secho(
             click.style("FAILED: ", fg="red")
             + f"Unable to pull from repo. Actual error message - \n\n {giterror}",
             bold=True,
         )
+
 
 @cli.command()
 def new():
@@ -307,12 +314,19 @@ def previous():
     penultimate = os.path.join(settings["posts"], penultimate)
     call([editor_exe, penultimate])
 
+
 @cli.command()
 def provoke():
     from .edge import provoke
+
     result = provoke()
-    header = click.style(result.question + "\n", fg="red") + click.style(result.url + "\n", fg="blue") + click.style(result.title + "\n", bold = True)
+    header = (
+        click.style(result.question + "\n", fg="red")
+        + click.style(result.url + "\n", fg="blue")
+        + click.style(result.title + "\n", bold=True)
+    )
     click.echo_via_pager(header + result.content)
+
 
 if __name__ == "__main__":
     cli()
