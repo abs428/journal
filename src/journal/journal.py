@@ -181,10 +181,10 @@ def search(search_term):
         cmd_list = ["grep", search_term, os.path.join(settings["posts"], "*.md")]
         exit_code = call(cmd_list)
         if exit_code == 2:
-            warnings.warn(
-                "Wasn't able execute `grep` command. Attempting to launch command via shell."
-            )
-            call(" ".join(cmd_list), shell=True)
+            from glob import glob
+
+            *first, pattern = cmd_list
+            call(first + glob(pattern))
     except Exception as e:
         print(
             "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
