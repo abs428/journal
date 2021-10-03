@@ -317,6 +317,9 @@ def previous():
 
 @cli.command()
 def provoke():
+    """Poses a thought provoking question from Edge.org's archives
+    and an answer to that question by an expert
+    """
     from .edge import provoke
 
     result = provoke()
