@@ -52,7 +52,7 @@ def get_settings() -> t.Dict[str, str]:
     """Function that returns the settings as a dict"""
     config = get_settings_path()
     if not does_file_exist(config):
-        raise OSError(f"Settings file not found at {config}")
+        raise FileNotFoundError(f"Settings file not found at {config}")
     with open(config, "r") as f:
         settings = json.load(f)
     return settings
@@ -82,7 +82,7 @@ def get_post_name(
     date_format: str = "YYYY-MM-DD",
     sep: str = "-",
     ext: str = ".md",
-):
+) -> str:
     """Function that generates the filename for a journal post
     written in markdown. It creates a default post name if
     nothing is specified. The post entry refers to today's entry.
@@ -126,6 +126,9 @@ def cli(ctx, config):
     if config:
         settings = get_settings()
         display_dict(settings)
+        click.echo(
+            f"\nThe settings are contained in {click.style(get_settings_path(), bold=True)}"
+        )
         return
 
     if not ctx.invoked_subcommand:
@@ -156,11 +159,21 @@ def cli(ctx, config):
     type=click.Path(),
     help="Folder that contains your journal entries as markdown files.",
 )
+@click.option(
+    "--serve",
+    prompt=click.style(
+        "Specify the command that allows you to serve your journal", bold=True
+    ),
+    type=click.STRING,
+    help="Command that allows you to serve your journal. Typically something like `cd myjournal; bundle exec jekyll serve`"
+    " where `myjournal` is the folder where your `jekyll` powered site resides.",
+    default="",
+)
 @cli.command()
-def setup(editor, posts):
+def setup(editor, posts, serve):
     """Configure the app to manage your markdown based journal"""
 
-    settings = {"posts": posts, "editor": editor}
+    settings = {"posts": posts, "editor": editor, "serve": serve}
 
     # Adding support for OSX's "~" for home directory
     if posts.startswith("~"):
@@ -178,6 +191,9 @@ def search(search_term):
     settings = get_settings()
 
     try:
+        # FIXME: In OSX, the message "grep: No such file or directory" always appears even
+        # if there are matches. This shouldn't happen. Also, it would be nice to have an
+        # explicit message stating that no results were found for a search term.
         cmd_list = ["grep", search_term, os.path.join(settings["posts"], "*.md")]
         exit_code = call(cmd_list)
         if exit_code == 2:
@@ -190,6 +206,28 @@ def search(search_term):
             "Something went wrong while trying to call grep. It is probably not installed. Please follow instructions from https://www.poftut.com/how-to-download-install-and-use-gnu-grep-on-windows/ for Windows."
         )
         print(f"Error message for pros: {e}")
+
+
+@cli.command()
+def serve():
+    """Serves your blog at localhost:4000.
+
+    TODO: Add options to fiddle with the port
+    """
+    import subprocess
+
+    settings = get_settings()
+
+    commands = settings["serve"].split(";")
+
+    for command_string in commands:
+        print(command_string)
+        # Adding support for OSX's "~" for home directory
+        if "~" in command_string:
+            command_string = command_string.replace("~", os.environ["HOME"])
+            print(command_string)
+
+        subprocess.run(command_string.split())
 
 
 @click.option("-m", "--message", required=False, type=click.STRING)
