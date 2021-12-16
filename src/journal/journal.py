@@ -305,8 +305,32 @@ def pull():
         )
 
 
+@click.option(
+    "-l",
+    "--layout",
+    required=False,
+    type=click.STRING,
+    default="post",
+    help="Specify the layout of your entry.",
+)
+@click.option(
+    "-c",
+    "--category",
+    required=False,
+    type=click.STRING,
+    default="journal",
+    help="Specify the category of the new entry. Typically, it is 'journal'.",
+)
+@click.option(
+    "-t",
+    "--title",
+    required=False,
+    type=click.STRING,
+    default=None,
+    help="Specify the title of the new entry. A default title based on the date will be assigned if not specified.",
+)
 @cli.command()
-def new():
+def new(title, category, layout):
     """Creates a new post for the day if one hasn't already
     been created. Opens that day's post in the configured editor
     in case it already exists"""
@@ -319,18 +343,42 @@ def new():
     todays_post = get_post_name()
     new_post = os.path.join(settings["posts"], todays_post)
 
-    if latest == todays_post:
+    if todays_post in posts and category is "journal":
+        # FIXME: This assumes that the naming convention for the file will always
+        # follow the default. This need not be true as Jekyll only cares about the
+        # date itself. The correct check would be to first check the date and then *confirm*
+        # that the post type is "journal". The latter is necessary because there might be
+        # an "essay" written on the same day.
+
         # This will be a warning
-        warnings.warn("Today's post already exists. Opening in text editor.")
+        warnings.warn("Today's journal entry already exists. Opening in text editor.")
     else:
         # Filling in the default header
         # TODO: Make this configurable via a template
-        title = get_post_name(day_format="", date_format="MMMM Do", sep="", ext="")
+        if title is None:
+            if todays_post in posts:
+                # TODO: Test this portion
+                assert os.path.isfile(
+                    new_post
+                ), "Today's post 'exists' in 'posts' but the file isn't there!"
+
+                raise ValueError(
+                    f"The file named {new_post} already exists. If you intended to create an entry that "
+                    "is not the standard journal entry, please provide a title explicitly by using the --title option."
+                )
+
+            title = get_post_name(day_format="", date_format="MMMM Do", sep="", ext="")
+
+        else:
+            new_post = os.path.join(
+                settings["posts"], get_post_name(name=title.lower().replace(" ", "-"))
+            )
+
         lines = [
             "---",
             f"title: {title}",
-            "layout: post",
-            "category: journal",
+            f"layout: {layout}",
+            f"category: {category}",
             "---",
         ]
         template = "\n".join(lines)
