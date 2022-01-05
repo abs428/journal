@@ -218,16 +218,8 @@ def serve():
 
     settings = get_settings()
 
-    commands = settings["serve"].split(";")
-
-    for command_string in commands:
-        print(command_string)
-        # Adding support for OSX's "~" for home directory
-        if "~" in command_string:
-            command_string = command_string.replace("~", os.environ["HOME"])
-            print(command_string)
-
-        subprocess.run(command_string.split())
+    command = settings["serve"]
+    subprocess.run(command.split(), shell=True)
 
 
 @click.option("-m", "--message", required=False, type=click.STRING)
