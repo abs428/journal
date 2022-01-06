@@ -67,6 +67,7 @@ def create_settings(data: t.Dict[str, str]) -> None:
 
     # BUG: This section for creating a folder if it doesn't exist
     # doesn't seem to be working on OSX/Linux.
+    # Doesn't seem to be working on Windows either
     folder_path = os.path.basename(file_path)
     folder = Path(folder_path)
     folder.mkdir(exist_ok=True)  # Creating the folder
