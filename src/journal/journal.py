@@ -220,7 +220,7 @@ def serve():
     settings = get_settings()
 
     command = settings["serve"]
-    subprocess.run(command.split(), shell=True)
+    subprocess.run(command, shell=True)
 
 
 @click.option("-m", "--message", required=False, type=click.STRING)
