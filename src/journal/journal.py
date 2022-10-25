@@ -429,28 +429,31 @@ def provoke():
 
 
 @click.option(
-    "-i",
-    "--import",
+    "--obsidian",
     required=False,
     type=click.STRING,
-    help="Imports journal entries in other formats",
+    help="Imports journal entries from Obsidian",
     cls=OptionEatAll,
 )
 @cli.command()
-def convert(import_string):
+def convert(obsidian):
     """Imports (or converts) markdown files created using other editors"""
-    from datetime import datetime
 
-    fmt, *files = import_string.split()
-    assert fmt.lower() == "obsidian", "Only Obsidian daily notes are supported as yet"
+    files = eval(obsidian)  # FIXME: There must be a better way
+
+    assert all(
+        file.lower().endswith(".md") for file in files
+    ), f"All files must have the extension .md. Input files: {files}"
+    # assert fmt.lower() == "obsidian", "Only Obsidian daily notes are supported as yet"
 
     # Assumption: All filenames must begin with a date in '%Y-%m-%d' format
-    to_import = {name: arrow.get(name[:10]) for name in files}
+    to_import = {name: arrow.get(os.path.basename(name)[:10]) for name in files}
 
     settings = get_settings()
     posts = os.listdir(settings["posts"])
+
     present = {
-        arrow.get(posts[:10]) for post in posts
+        arrow.get(post[:10]) for post in posts if post.lower().endswith(".md")
     }  # Dates for which posts are already present
 
     for source_file, date in to_import.items():
@@ -460,7 +463,7 @@ def convert(import_string):
             )
         else:
             file = os.path.join(settings["posts"], get_post_name(date=date))
-            title = f"imported post {date}"
+            title = f"imported post for {date.strftime('%d %b %Y')}"
             body = read_text(source_file)
             write_file(file, title=title, layout="post", category="journal", body=body)
 
