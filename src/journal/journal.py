@@ -2,12 +2,15 @@
 
 import os
 import json
+from turtle import title
 import warnings
 import click
+import arrow
 from pathlib import Path
 import typing as t
 import sys
 from subprocess import call
+from .convert import OptionEatAll
 
 SETTINGS_FILE = "settings.json"  #: The file containing the configuration information
 
@@ -92,19 +95,20 @@ def get_post_name(
 
     TODO: Custom names from CLI
     """
-    import arrow
-
-    now = arrow.now()
 
     if date is None:
-        date = now.format(date_format)
+        date = arrow.now()
     else:
-        raise NotImplementedError("Posts for custom dates not supported yet.")
+        if not isinstance(date, arrow.Arrow):
+            raise TypeError("Custom dates must be specified as arrow objects.")
+
+    date_string = date.format(date_format)
+
     if name is None:
-        name = now.format(day_format).lower()
+        name = date.format(day_format).lower()
 
     # FIXME: Hardcoding extension may not be a great idea
-    return date + sep + name + ext
+    return date_string + sep + name + ext
 
 
 def display_dict(dictionary: t.Dict[str, str]) -> None:
@@ -113,6 +117,31 @@ def display_dict(dictionary: t.Dict[str, str]) -> None:
     for key, value in dictionary.items():
         text = (click.style(key, fg="white", bold=True) + ": ").rjust(15) + value
         click.echo(text)
+
+
+def read_text(file: str) -> str:
+    """Reads a text file and returns the content as a string"""
+    with open(file, "r") as f:
+        return f.read()
+
+
+def write_file(file: str, title: str, layout: str, category: str, body: str = ""):
+    """Creates the file that contains the contents of the journal entry
+    """
+    # Filling in the default header
+    # TODO: Make this configurable via a template
+    lines = [
+        "---",
+        f"title: {title}",
+        f"layout: {layout}",
+        f"category: {category}",
+        "---",
+    ]
+    template = "\n".join(lines)
+    content = template + "\n" + body if body else template
+
+    with open(file, "w") as f:
+        f.write(content)
 
 
 ## CLI
@@ -346,8 +375,6 @@ def new(title, category, layout):
         # This will be a warning
         warnings.warn("Today's journal entry already exists. Opening in text editor.")
     else:
-        # Filling in the default header
-        # TODO: Make this configurable via a template
         if title is None:
             if todays_post in posts:
                 # TODO: Test this portion
@@ -355,7 +382,7 @@ def new(title, category, layout):
                     new_post
                 ), "Today's post 'exists' in 'posts' but the file isn't there!"
 
-                raise ValueError(
+                raise RuntimeError(
                     f"The file named {new_post} already exists. If you intended to create an entry that "
                     "is not the standard journal entry, please provide a title explicitly by using the --title option."
                 )
@@ -367,16 +394,7 @@ def new(title, category, layout):
                 settings["posts"], get_post_name(name=title.lower().replace(" ", "-"))
             )
 
-        lines = [
-            "---",
-            f"title: {title}",
-            f"layout: {layout}",
-            f"category: {category}",
-            "---",
-        ]
-        template = "\n".join(lines)
-        with open(new_post, "w") as file:
-            file.write(template)
+        write_file(new_post, title, layout, category)
 
     call([editor_exe, new_post])
 
@@ -408,6 +426,43 @@ def provoke():
         + click.style(result.title + "\n", bold=True)
     )
     click.echo_via_pager(header + result.content)
+
+
+@click.option(
+    "-i",
+    "--import",
+    required=False,
+    type=click.STRING,
+    help="Imports journal entries in other formats",
+    cls=OptionEatAll,
+)
+@cli.command()
+def convert(import_string):
+    """Imports (or converts) markdown files created using other editors"""
+    from datetime import datetime
+
+    fmt, *files = import_string.split()
+    assert fmt.lower() == "obsidian", "Only Obsidian daily notes are supported as yet"
+
+    # Assumption: All filenames must begin with a date in '%Y-%m-%d' format
+    to_import = {name: arrow.get(name[:10]) for name in files}
+
+    settings = get_settings()
+    posts = os.listdir(settings["posts"])
+    present = {
+        arrow.get(posts[:10]) for post in posts
+    }  # Dates for which posts are already present
+
+    for source_file, date in to_import.items():
+        if date in present:
+            warnings.warn(
+                f"Post for {date.strftime('%d %b %Y')} is already present. Ignoring {source_file}."
+            )
+        else:
+            file = os.path.join(settings["posts"], get_post_name(date=date))
+            title = f"imported post {date}"
+            body = read_text(source_file)
+            write_file(file, title=title, layout="post", category="journal", body=body)
 
 
 if __name__ == "__main__":
