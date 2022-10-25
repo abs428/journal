@@ -463,7 +463,7 @@ def convert(obsidian):
             )
         else:
             file = os.path.join(settings["posts"], get_post_name(date=date))
-            title = f"imported post for {date.strftime('%d %b %Y')}"
+            title = f"Imported post from {date.strftime('%d %b %Y')}"
             body = read_text(source_file)
             write_file(file, title=title, layout="post", category="journal", body=body)
 
