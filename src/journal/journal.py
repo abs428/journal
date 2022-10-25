@@ -138,7 +138,7 @@ def write_file(file: str, title: str, layout: str, category: str, body: str = ""
         "---",
     ]
     template = "\n".join(lines)
-    content = template + "\n" + body if body else template
+    content = template + "\n\n" + body if body else template
 
     with open(file, "w") as f:
         f.write(content)
