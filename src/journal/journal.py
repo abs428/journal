@@ -2,7 +2,6 @@
 
 import os
 import json
-from turtle import title
 import warnings
 import click
 import arrow
@@ -467,6 +466,7 @@ def convert(source_type, files):
             title = f"Imported post from {date.strftime('%d %b %Y')}"
             body = read_text(source_file)
             write_file(file, title=title, layout="post", category="journal", body=body)
+            click.secho(f"Imported {source_file}")
 
 
 if __name__ == "__main__":
