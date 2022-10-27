@@ -10,9 +10,11 @@ from pathlib import Path
 import typing as t
 import sys
 from subprocess import call
-from .convert import OptionEatAll
 
 SETTINGS_FILE = "settings.json"  #: The file containing the configuration information
+SUPPORTED_IMPORTS = [
+    "obsidian"
+]  #: Formats from which imports to the journal are supported
 
 ## Helper functions
 
@@ -428,23 +430,22 @@ def provoke():
     click.echo_via_pager(header + result.content)
 
 
-@click.option(
-    "--obsidian",
-    required=False,
-    type=click.STRING,
-    help="Imports journal entries from Obsidian",
-    cls=OptionEatAll,
+@click.argument("files", nargs=-1, type=click.Path(exists=True))
+@click.argument(
+    "source_type", nargs=1, type=click.Choice(SUPPORTED_IMPORTS, case_sensitive=False)
 )
 @cli.command()
-def convert(obsidian):
+def convert(source_type, files):
     """Imports (or converts) markdown files created using other editors"""
 
-    files = eval(obsidian)  # FIXME: There must be a better way
+    if source_type not in SUPPORTED_IMPORTS:
+        raise NotImplementedError(
+            f"The following source types are supported: {SUPPORTED_IMPORTS}"
+        )
 
     assert all(
         file.lower().endswith(".md") for file in files
     ), f"All files must have the extension .md. Input files: {files}"
-    # assert fmt.lower() == "obsidian", "Only Obsidian daily notes are supported as yet"
 
     # Assumption: All filenames must begin with a date in '%Y-%m-%d' format
     to_import = {name: arrow.get(os.path.basename(name)[:10]) for name in files}
@@ -458,7 +459,7 @@ def convert(obsidian):
 
     for source_file, date in to_import.items():
         if date in present:
-            warnings.warn(
+            click.secho(
                 f"Post for {date.strftime('%d %b %Y')} is already present. Ignoring {source_file}."
             )
         else:
