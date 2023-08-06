@@ -176,7 +176,7 @@ def compare_strings(s1: str, s2: str):
         no_spaces = "".join(no_header.split())
         return no_spaces
 
-    shorter, longer = (s1, s2) if s1 < s2 else (s2, s1)
+    shorter, longer = (s1, s2) if len(s1) < len(s2) else (s2, s1)
     lcs_length = pylcs.lcs_string_length(preprocess(shorter), preprocess(longer))
     ratio = lcs_length / len(preprocess(shorter))
     return ratio, longer == s1
@@ -527,7 +527,9 @@ def convert(source_type, files, compare):
                     if not is_existing_longer and (similarity < 1)
                     else " "
                 )
-                comparison = f"{warning}Similarity: {round(similarity, 3)}"
+                comparison = (
+                    f"{warning}Similarity of common subsequence: {round(similarity, 3)}"
+                )
                 ignored_msg += comparison
             click.secho(ignored_msg)
         else:
