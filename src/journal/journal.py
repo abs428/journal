@@ -14,6 +14,7 @@ SETTINGS_FILE = "settings.json"  #: The file containing the configuration inform
 SUPPORTED_IMPORTS = [
     "obsidian"
 ]  #: Formats from which imports to the journal are supported
+DATE_LENGTH = 10  # Length of a "date" string. Eg:- 2023-01-12
 
 ## Helper functions
 
@@ -126,11 +127,9 @@ def read_text(file: str) -> str:
         return f.read()
 
 
-def write_file(file: str, title: str, layout: str, category: str, body: str = ""):
-    """Creates the file that contains the contents of the journal entry
-    """
-    # Filling in the default header
-    # TODO: Make this configurable via a template
+def get_template(title, layout, category):
+    """Creates the header of the markdown file"""
+    # TODO: Make this configurable using an actual template
     lines = [
         "---",
         f"title: {title}",
@@ -138,7 +137,55 @@ def write_file(file: str, title: str, layout: str, category: str, body: str = ""
         f"category: {category}",
         "---",
     ]
-    template = "\n".join(lines)
+
+    return "\n".join(lines)
+
+
+def remove_header(string):
+    """Removes the header from a string"""
+    import re
+
+    pattern = r"^---\n(.*?)\n---\n"
+    result = re.sub(pattern, "", string, flags=re.DOTALL)
+    return result.strip()
+
+
+def compare_strings(s1: str, s2: str):
+    """Compares the input strings and returns a tuple with two components
+    1. (longest common subsequence)/(length of shorter string)
+    2. Flag indicating whether len(s1) > len(s2)
+
+    The comparison is case-insentisive and ignores spaces.
+
+    Examples
+    --------
+    >>> s1 = "We are shannonai"
+    >>> s2 = "We like shannonai"
+    >>> s3 = "We like Shannonai"
+    >>> compare_strings(s1, s2)
+    (0.7142857142857143, False)
+    >>> compare_strings(s1, s3)
+    (0.7142857142857143, False)
+    >>> compare_strings(s2, s1)
+    (0.7142857142857143, True)
+    """
+    import pylcs
+
+    def preprocess(string):
+        no_header = remove_header(string.strip().lower())
+        no_spaces = "".join(no_header.split())
+        return no_spaces
+
+    shorter, longer = (s1, s2) if len(s1) < len(s2) else (s2, s1)
+    lcs_length = pylcs.lcs_string_length(preprocess(shorter), preprocess(longer))
+    ratio = lcs_length / len(preprocess(shorter))
+    return ratio, longer == s1
+
+
+def write_file(file: str, title: str, layout: str, category: str, body: str = ""):
+    """Creates the file that contains the contents of the journal entry"""
+    # Filling in the default header
+    template = get_template(title=title, layout=layout, category=category)
     content = template + "\n\n" + body if body else template
 
     with open(file, "w") as f:
@@ -366,7 +413,7 @@ def new(title, category, layout):
     todays_post = get_post_name()
     new_post = os.path.join(settings["posts"], todays_post)
 
-    if todays_post in posts and category is "journal":
+    if todays_post in posts and category == "journal":
         # FIXME: This assumes that the naming convention for the file will always
         # follow the default. This need not be true as Jekyll only cares about the
         # date itself. The correct check would be to first check the date and then *confirm*
@@ -429,12 +476,18 @@ def provoke():
     click.echo_via_pager(header + result.content)
 
 
+@click.option(
+    "--compare",
+    is_flag=True,
+    default=False,
+    help="Compares the file present in posts with the ignored file",
+)
 @click.argument("files", nargs=-1, type=click.Path(exists=True))
 @click.argument(
     "source_type", nargs=1, type=click.Choice(SUPPORTED_IMPORTS, case_sensitive=False)
 )
 @cli.command()
-def convert(source_type, files):
+def convert(source_type, files, compare):
     """Imports (or converts) markdown files created using other editors"""
 
     if source_type not in SUPPORTED_IMPORTS:
@@ -447,22 +500,39 @@ def convert(source_type, files):
     ), f"All files must have the extension .md. Input files: {files}"
 
     # Assumption: All filenames must begin with a date in '%Y-%m-%d' format
-    to_import = {name: arrow.get(os.path.basename(name)[:10]) for name in files}
+    to_import = {
+        name: arrow.get(os.path.basename(name)[:DATE_LENGTH]) for name in files
+    }
 
     settings = get_settings()
     posts = os.listdir(settings["posts"])
 
     present = {
-        arrow.get(post[:10]) for post in posts if post.lower().endswith(".md")
+        arrow.get(post[:DATE_LENGTH]) for post in posts if post.lower().endswith(".md")
     }  # Dates for which posts are already present
 
     for source_file, date in to_import.items():
+        file = os.path.join(settings["posts"], get_post_name(date=date))
+
         if date in present:
-            click.secho(
-                f"Post for {date.strftime('%d %b %Y')} is already present. Ignoring {source_file}."
-            )
+            ignored_msg = f"Post for {date.strftime('%d %b %Y')} is already present. Ignoring {source_file}."
+            if compare:
+                source_text = read_text(source_file)
+                existing_text = read_text(file)
+                similarity, is_existing_longer = compare_strings(
+                    existing_text, source_text
+                )
+                warning = (
+                    click.style(" Incoming text larger. ", fg="red", bold=True)
+                    if not is_existing_longer and (similarity < 1)
+                    else " "
+                )
+                comparison = (
+                    f"{warning}Similarity of common subsequence: {round(similarity, 3)}"
+                )
+                ignored_msg += comparison
+            click.secho(ignored_msg)
         else:
-            file = os.path.join(settings["posts"], get_post_name(date=date))
             title = f"Imported post from {date.strftime('%d %b %Y')}"
             body = read_text(source_file)
             write_file(file, title=title, layout="post", category="journal", body=body)
