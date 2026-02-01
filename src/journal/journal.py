@@ -140,6 +140,12 @@ def get_template(title, layout, category):
 
     return "\n".join(lines)
 
+# def get_template(fence: str, sep: str, **kwargs):
+#     header_content = [f"{key}{sep}{value}" for key, value in kwargs.items()]
+#     header_content = [fence] + header_content + [fence]
+#     return "\n".join(header_content)
+
+
 
 def remove_header(string):
     """Removes the header from a string"""
@@ -316,19 +322,29 @@ def push(message):
 
     settings = get_settings()
 
-    folder = os.path.dirname(settings["posts"])
-    repo = Repo(folder)
-    if not message:
-        message = f"Autocommit at {time()}"
+    repo = Repo(settings["repo"])
+    message = message or f"Autocommit at {time()}"
     # Commiting the folder with posts and the one with images
     try:
-        click.secho("Adding new files to index", bold=True)
-        _ = repo.index.add([settings["posts"], "assets/img"])
-        click.secho("Committing changes", bold=True)
-        repo.index.commit(message)
-        click.secho("Pushing to remote repository", bold=True)
-        origin = repo.remote("origin")
-        origin.push()
+        untracked_files = [f for f in repo.untracked_files if f.startswith("static/images/") or f.endswith(".md")]
+        if untracked_files:
+            click.secho(f"Found untracked files: {untracked_files}", fg="blue")
+            click.secho("Adding new images to index", bold=True)
+            repo.index.add(untracked_files)
+        changed_str = repo.git.diff(name_only=True)
+        if changed_str:
+            changed_files = [f for f in changed_str.split("\n") if f.startswith("static/images/") or f.endswith(".md")]
+            click.secho(f"Found changed files: {changed_files}", fg="blue")
+            repo.index.add(changed_files)
+        if untracked_files or changed_str:
+            click.secho("Committing changes", bold=True)
+            repo.index.commit(message)
+            click.secho("Pushing to remote repository", bold=True)
+            origin = repo.remote("origin")
+            origin.push()
+        else:
+            click.secho(click.style("NO CHANGE: ", fg="yellow") + "No changes detected. Skipping push.", bold=True)
+            return
     except GitCommandError as giterror:
         click.secho(
             click.style("FAILED: ", fg="red")
