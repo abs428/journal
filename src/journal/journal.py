@@ -329,7 +329,7 @@ def push(message):
         untracked_files = [f for f in repo.untracked_files if f.startswith("static/images/") or f.endswith(".md")]
         if untracked_files:
             click.secho(f"Found untracked files: {untracked_files}", fg="blue")
-            click.secho("Adding new images to index", bold=True)
+            click.secho("Adding new file to index", bold=True)
             repo.index.add(untracked_files)
         changed_str = repo.git.diff(name_only=True)
         if changed_str:
