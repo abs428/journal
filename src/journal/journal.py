@@ -130,12 +130,24 @@ def read_text(file: str) -> str:
 def get_template(title, layout, category):
     """Creates the header of the markdown file"""
     # TODO: Make this configurable using an actual template
+    # lines = [
+    #     "---",
+    #     f"title: {title}",
+    #     f"layout: {layout}",
+    #     f"category: {category}",
+    #     "---",
+    # ]
+    from datetime import datetime
+
+    today = datetime.today()
     lines = [
-        "---",
-        f"title: {title}",
-        f"layout: {layout}",
-        f"category: {category}",
-        "---",
+        "+++",
+        f"""title = '{title}'""",
+        f'template = "{layout}"',
+        f"""categories = ["{category}"]""",
+        f"""slug = '{today.strftime("%Y-%m-%d-%B-%d").lower()}'""",
+        f"""date = {today.strftime("%Y-%m-%d")}""",
+        """+++"""
     ]
 
     return "\n".join(lines)
@@ -396,7 +408,7 @@ def pull():
     "--layout",
     required=False,
     type=click.STRING,
-    default="post",
+    default="page.html",
     help="Specify the layout of your entry.",
 )
 @click.option(
@@ -551,7 +563,7 @@ def convert(source_type, files, compare):
         else:
             title = f"Imported post from {date.strftime('%d %b %Y')}"
             body = read_text(source_file)
-            write_file(file, title=title, layout="post", category="journal", body=body)
+            write_file(file, title=title, layout="page.html", category="journal", body=body)
             click.secho(f"Imported {source_file}")
 
 
