@@ -384,9 +384,7 @@ def pull():
         )
 
     settings = get_settings()
-
-    folder = os.path.dirname(settings["posts"])
-    repo = Repo(folder)
+    repo = Repo(settings["repo"])
     click.secho("Pulling changes from remote repository", bold=True)
     try:
         origin = repo.remote("origin")
